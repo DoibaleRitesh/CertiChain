@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Certificate": {
+      "title": "Certificate",
+      "description": "An academic certificate issued on the blockchain",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique certificate ID" },
+        "studentName": { "type": "string", "description": "Name of the student" },
+        "courseName": { "type": "string", "description": "Name of the course" },
+        "issueDate": { "type": "string", "description": "Date of issuance" },
+        "institutionName": { "type": "string", "description": "Name of the issuing institution" },
+        "ipfsHash": { "type": "string", "description": "IPFS hash of the certificate document" },
+        "tokenId": { "type": "string", "description": "Blockchain token ID" },
+        "recipientAddress": { "type": "string", "description": "Ethereum address of the student" },
+        "issuerAddress": { "type": "string", "description": "Ethereum address of the institution" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentName", "courseName", "issueDate", "institutionName", "recipientAddress", "issuerAddress"]
+    }
+  },
+  "firestore": {
+    "/certificates/{certificateId}": {
+      "schema": "Certificate",
+      "description": "Collection of all issued academic certificates"
+    }
+  }
+}

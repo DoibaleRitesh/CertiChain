@@ -13,6 +13,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Certificate } from '../types';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export const VerifyPage = () => {
   const [searchId, setSearchId] = useState('');
@@ -28,25 +30,21 @@ export const VerifyPage = () => {
     setError(null);
     setResult(null);
 
-    // Simulated search delay
-    setTimeout(() => {
-      // Mock result for demonstration
-      if (searchId === 'CERT-123') {
-        setResult({
-          id: 'CERT-123',
-          studentName: 'John Doe',
-          courseName: 'Bachelor of Computer Science',
-          issueDate: '2025-06-15',
-          institutionName: 'Global Tech University',
-          ipfsHash: 'QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco',
-          tokenId: '4521',
-          recipientAddress: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'
-        });
+    try {
+      const docRef = doc(db, 'certificates', searchId.trim());
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        setResult(docSnap.data() as Certificate);
       } else {
         setError('Certificate not found. Please check the ID and try again.');
       }
+    } catch (err) {
+      console.error("Error searching certificate:", err);
+      setError('An error occurred while searching. Please try again.');
+    } finally {
       setIsSearching(false);
-    }, 1500);
+    }
   };
 
   return (

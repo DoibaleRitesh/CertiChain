@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Award, 
   Download, 
   ExternalLink, 
   ShieldCheck, 
-  Share2,
+  Share2, 
   Copy,
   CheckCircle2,
   Wallet,
@@ -14,10 +14,39 @@ import {
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useWallet } from '../App';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export const StudentPortal = () => {
   const { account, connectWallet, isConnecting } = useWallet();
   const [copied, setCopied] = useState<string | null>(null);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!account) return;
+
+    setIsLoading(true);
+    const q = query(
+      collection(db, 'certificates'), 
+      where('recipientAddress', '==', account.toLowerCase())
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const certs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        image: `https://picsum.photos/seed/${doc.id}/400/300`
+      }));
+      setCertificates(certs);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching student certificates:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [account]);
 
   if (!account) {
     return (
@@ -53,24 +82,14 @@ export const StudentPortal = () => {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const certificates = [
-    {
-      id: 'CERT-123',
-      name: 'Bachelor of Computer Science',
-      institution: 'Global Tech University',
-      date: 'June 15, 2025',
-      tokenId: '4521',
-      image: 'https://picsum.photos/seed/cert1/400/300'
-    },
-    {
-      id: 'CERT-789',
-      name: 'Full Stack Web Development',
-      institution: 'Code Academy Online',
-      date: 'Dec 10, 2024',
-      tokenId: '2109',
-      image: 'https://picsum.photos/seed/cert2/400/300'
-    }
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Loading your credentials...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
@@ -114,13 +133,13 @@ export const StudentPortal = () => {
 
             <div className="p-6">
               <div className="mb-4">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{cert.institution}</p>
-                <h3 className="text-lg font-bold text-slate-900 leading-tight">{cert.name}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{cert.institutionName}</p>
+                <h3 className="text-lg font-bold text-slate-900 leading-tight">{cert.courseName}</h3>
               </div>
 
               <div className="flex items-center justify-between text-sm text-slate-500 mb-6">
                 <span className="flex items-center">
-                  Issued: {cert.date}
+                  Issued: {cert.issueDate}
                 </span>
                 <span className="font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                   #{cert.tokenId}

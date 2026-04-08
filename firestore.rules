@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: certificates
+    // Document ID: certificateId (same as certificate.id)
+    // Fields:
+    //   - id: string (required)
+    //   - studentName: string (required, max 100)
+    //   - courseName: string (required, max 100)
+    //   - issueDate: string (required, ISO format)
+    //   - institutionName: string (required, max 100)
+    //   - ipfsHash: string (optional)
+    //   - tokenId: string (optional)
+    //   - recipientAddress: string (required, eth address format)
+    //   - issuerAddress: string (required, eth address format)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isValidCertificate(data) {
+      return data.keys().hasAll(['id', 'studentName', 'courseName', 'issueDate', 'institutionName', 'recipientAddress', 'issuerAddress', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 50 &&
+             data.studentName is string && data.studentName.size() > 0 && data.studentName.size() < 100 &&
+             data.courseName is string && data.courseName.size() > 0 && data.courseName.size() < 100 &&
+             data.institutionName is string && data.institutionName.size() > 0 && data.institutionName.size() < 100 &&
+             data.recipientAddress is string && data.recipientAddress.matches("^0x[a-fA-F0-9]{40}$") &&
+             data.issuerAddress is string && data.issuerAddress.matches("^0x[a-fA-F0-9]{40}$");
+    }
+
+    match /certificates/{certificateId} {
+      // Anyone can read/verify a certificate if they know the ID
+      allow read: if true;
+      
+      // Only authenticated users (admins) can create certificates
+      // In a real app, we'd check if the issuerAddress matches the user's verified role
+      allow create: if isAuthenticated() && isValidCertificate(request.resource.data);
+      
+      // Certificates are immutable once issued
+      allow update, delete: if false;
+    }
+  }
+}

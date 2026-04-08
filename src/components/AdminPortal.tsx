@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   FileText, 
@@ -15,17 +15,42 @@ import {
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useWallet } from '../App';
+import { db } from '../firebase';
+import { collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, setDoc, doc } from 'firebase/firestore';
+import { Certificate } from '../types';
 
 export const AdminPortal = () => {
   const { account, connectWallet, isConnecting } = useWallet();
   const [isMinting, setIsMinting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [recentCerts, setRecentCerts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     studentName: '',
     courseName: '',
     studentAddress: '',
     issueDate: new Date().toISOString().split('T')[0]
   });
+
+  // Fetch recent certificates
+  useEffect(() => {
+    if (!account) return;
+    
+    const q = query(
+      collection(db, 'certificates'), 
+      orderBy('createdAt', 'desc'), 
+      limit(5)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const certs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setRecentCerts(certs);
+    });
+
+    return () => unsubscribe();
+  }, [account]);
 
   if (!account) {
     return (
@@ -57,10 +82,30 @@ export const AdminPortal = () => {
 
   const handleMint = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!account) return;
+    
     setIsMinting(true);
     
-    // Simulated blockchain minting process
-    setTimeout(() => {
+    try {
+      const certId = `CERT-${Math.floor(1000 + Math.random() * 9000)}`;
+      const tokenId = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const certData = {
+        id: certId,
+        studentName: formData.studentName,
+        courseName: formData.courseName,
+        issueDate: formData.issueDate,
+        institutionName: 'Global Tech University',
+        ipfsHash: 'Qm' + Math.random().toString(36).substring(2, 15),
+        tokenId: tokenId,
+        recipientAddress: formData.studentAddress.toLowerCase(),
+        issuerAddress: account.toLowerCase(),
+        createdAt: serverTimestamp()
+      };
+
+      // Save to Firestore
+      await setDoc(doc(db, 'certificates', certId), certData);
+
       setIsMinting(false);
       setShowSuccess(true);
       setFormData({
@@ -70,7 +115,11 @@ export const AdminPortal = () => {
         issueDate: new Date().toISOString().split('T')[0]
       });
       setTimeout(() => setShowSuccess(false), 5000);
-    }, 3000);
+    } catch (error) {
+      console.error("Error minting certificate:", error);
+      setIsMinting(false);
+      alert("Failed to issue certificate. Check console for details.");
+    }
   };
 
   return (
@@ -222,22 +271,20 @@ export const AdminPortal = () => {
               <button className="text-blue-600 text-xs font-bold hover:underline">View All</button>
             </div>
             <div className="divide-y divide-slate-50">
-              {[
-                { name: 'Alice Smith', course: 'B.Sc CS', date: '2 mins ago' },
-                { name: 'Bob Johnson', course: 'M.A History', date: '1 hour ago' },
-                { name: 'Charlie Brown', course: 'B.Tech IT', date: '3 hours ago' }
-              ].map((item, i) => (
+              {recentCerts.length > 0 ? recentCerts.map((item, i) => (
                 <div key={i} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{item.name}</p>
-                    <p className="text-xs text-slate-500">{item.course}</p>
+                    <p className="text-sm font-bold text-slate-900">{item.studentName}</p>
+                    <p className="text-xs text-slate-500">{item.courseName}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">{item.date}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">{item.id}</p>
                     <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-blue-500 transition-colors ml-auto mt-1" />
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="p-8 text-center text-slate-400 text-sm">No certificates issued yet.</div>
+              )}
             </div>
           </div>
         </div>
